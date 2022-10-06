@@ -1,6 +1,3 @@
-# This CITATION.cff file was generated with cffinit.
-# Visit https://bit.ly/cffinit to generate yours today!
-
 cff-version: 1.2.0
 title: >-
   CROMP (Constrained Regression with Ordered and
@@ -15,7 +12,7 @@ authors:
     email: kb.opendev@gmail.com
     affiliation: Inxite Out Pvt Ltd
     orcid: 'https://orcid.org/0000-0002-1167-7303'
-repository-code: 'https://github.com/kb-open/cromp'
+repository-code: 'https://github.com/kb-open/CROMP'
 repository-artifact: 'https://pypi.org/project/cromp/'
 abstract: >-
   This software provides the official implementation
