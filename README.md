@@ -15,7 +15,8 @@ CROMP allows:
 * User-defined minimum margins (i.e., percentage gaps) between the coefficients
 * User-defined lower and upper bounds for each coefficient
 
-There is no other package / library available in the public domain today with these capabilities. This package is interpretable and accurate.
+This package is both interpretable and accurate.
+There is no other package / library available in the public domain today with these capabilities.
 
 ---------------------------
 ## 💻 Installation
@@ -40,7 +41,7 @@ The tests depend additionally on:
 ---------------------------
 ## 🚀 Usage
 Below is a minimal usage guide. This library aloows flexibility for more fine-grained controls for each coefficient separately.
-Please go through the test code [here](https://github.com/kb-open/cromp/blob/main/tests/cromp_tests.py) to see more examples.
+Please go through the [tests](https://github.com/kb-open/cromp/blob/main/tests/cromp_tests.py) in addition to see more examples.
 
 ```python
 >>> from cromp import CROMPTrain, CROMPPredict
@@ -52,14 +53,14 @@ Please go through the test code [here](https://github.com/kb-open/cromp/blob/mai
 >>> target_col = 'SalePrice'
 >>> feature_cols_in_asc_order = ['1stFlrSF', 'TotalBsmtSF', 'GrLivArea']
 
-"# Instantiate and configure"
+>>> # Instantiate and configure
 >>> model = CROMPTrain()
 >>> ret_success = model.configure(df_train, target_col, feature_cols_in_asc_order, min_gap_pct=0.5, lb=0.0, ub=100.0, no_intercept=True)
 
-"# Train"
+>>> # Train
 >>> ret_success, wages = model.train()
 
-"# Predict"
+>>> # Predict
 >>> model = CROMPPredict(wages)
 >>> ret_success, result = model.predict(df_test, feature_cols_in_asc_order)
 ```
