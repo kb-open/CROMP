@@ -3,6 +3,7 @@ pytest:
 
 install:
 	python -m pip install -e .
+	python -m pip install tests/requirements.txt
 
 pypi:
 	python setup.py sdist
