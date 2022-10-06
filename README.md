@@ -10,7 +10,7 @@ Author: [Kaushik Bar](kb.opendev@gmail.com)
 
 Author Affiliation: [Inxite Out Pvt Ltd](https://inxiteout.ai/)
 
-![](assets/model-workflow.jpeg)
+![](assets/model-workflow.png)
 ---------------------------
 ## 🎯 Quick Info
 CROMP allows: 
