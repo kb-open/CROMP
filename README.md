@@ -6,7 +6,10 @@
 # ✏️ CROMP (Constrained Regression with Ordered and Margin-sensitive Parameters) 
 This repo provides the official implementation of CROMP (Constrained Regression with Ordered and Margin-sensitive Parameters) along with the test dataset and the experimental test pipeline code to reproduce the benchmarking results as described in the CROMP paper ("**Constrained Regression with Ordered and Margin-sensitive Parameters: Application in improving interpretability for wage models with prior knowledge**").
 
+![](assets/model-workflow.jpeg)
+
 Author: [Kaushik Bar](kb.opendev@gmail.com)
+Author Affiliation: [Inxite Out Pvt Ltd](https://inxiteout.ai/)
 
 ---------------------------
 ## 🎯 Quick Info
