@@ -103,7 +103,6 @@ if __name__ == '__main__':
     parser.add_argument("NumTrainSamples", metavar='n', type=int, nargs='?', help="specify number of training samples for benchmarking test")
     
     args = parser.parse_args()
-    print("****", args)
     
     if args.Benchmark:
         if args.NumTrainSamples:
