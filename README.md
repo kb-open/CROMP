@@ -84,6 +84,7 @@ month = {10},
 title = {{CROMP (Constrained Regression with Ordered and Margin-sensitive Parameters)}},
 url = {https://github.com/kb-open/CROMP},
 year = {2022}
+version = {v0.0.3},
 }
 ```
 
