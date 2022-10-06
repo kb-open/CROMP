@@ -1,4 +1,4 @@
-test:
+pytest:
 	pytest
 
 install:
@@ -11,5 +11,8 @@ pypi:
 clean:
 	rm -rf **/.ipynb_checkpoints **/.pytest_cache **/__pycache__ **/**/__pycache__ .ipynb_checkpoints .pytest_cache
 
-check: test clean
+ut:
+	python tests/cromp_tests.py
+
+check: test install ut
 
