@@ -14,5 +14,5 @@ clean:
 ut:
 	python tests/cromp_tests.py
 
-check: test install ut
+test_check: test install ut
 
