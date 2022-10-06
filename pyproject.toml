@@ -1,0 +1,19 @@
+[project]
+name = "cromp"
+version = "0.0.1"
+authors = [{name = "Kaushik Bar", email = "kb.opendev@gmail.com"},]
+description = "The official implementation of CROMP (Constrained Regression with Ordered and Margin-sensitive Parameters). CROMP allows user-defined order among the coefficients, user-defined minimum margins (i.e., percentage gaps) between them, and user-defined lower and upper bounds for each coefficient."
+readme = "README.md"
+license = {file="LICENSE.txt"}
+requires-python = ">=3.7"
+classifiers = [
+   "Programming Language :: Python :: 3",
+   "License :: OSI Approved :: MIT License",
+   "Operating System :: OS Independent",
+   "Topic :: Scientific/Engineering :: Computer Science and Information Technology :: Artificial Intelligence",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/kb-open/CROMP"
+"Bug Tracker" = "https://github.com/kb-open/CROMP/issues"
+
