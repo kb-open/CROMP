@@ -72,3 +72,18 @@ Please go through the [tests](https://github.com/kb-open/cromp/blob/main/tests/c
 ## ☕ Contact
 Feel free to contact [Kaushik Bar](https://www.linkedin.com/in/iamkbar/) if you have any further questions / feedback.
 
+---------------------------
+## Citation
+To cite CROMP in your work, please use the following bibtex reference:
+
+```bibtex
+@software{Bar_CROMP_Constrained_Regression_2022,
+author = {Bar, Kaushik},
+license = {MIT},
+month = {10},
+title = {{CROMP (Constrained Regression with Ordered and Margin-sensitive Parameters)}},
+url = {https://github.com/kb-open/CROMP},
+year = {2022}
+}
+```
+
