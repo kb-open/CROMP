@@ -4,10 +4,6 @@ test:
 install:
 	python -m pip install -e .
 
-install-test:
-	python -m pip install -e ".[test]"
-	python -m pip install -e ".[all]"
-
 pypi:
 	python setup.py sdist
 	twine upload dist/*
