@@ -9,6 +9,7 @@ This repo provides the official implementation of CROMP (Constrained Regression 
 Author: [Kaushik Bar](kb.opendev@gmail.com)
 
 Author Affiliation: [Inxite Out Pvt Ltd](https://inxiteout.ai/)
+
 ![](assets/model-workflow.jpeg)
 ---------------------------
 ## 🎯 Quick Info
