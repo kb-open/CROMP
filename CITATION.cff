@@ -1,0 +1,29 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: >-
+  CROMP (Constrained Regression with Ordered and
+  Margin-sensitive Parameters)
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Kaushik
+    family-names: Bar
+    email: kb.opendev@gmail.com
+    affiliation: Inxite Out Pvt Ltd
+    orcid: 'https://orcid.org/0000-0002-1167-7303'
+repository-code: 'https://github.com/kb-open/cromp'
+repository-artifact: 'https://pypi.org/project/cromp/'
+abstract: >-
+  This software provides the official implementation
+  of CROMP (Constrained Regression with Ordered and
+  Margin-sensitive Parameters).
+keywords:
+  - cromp
+  - constrained regression
+  - interpretable ai
+license: MIT
+date-released: '2022-10-06'
