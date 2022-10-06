@@ -45,7 +45,7 @@ Please go through the test code [here](https://github.com/kb-open/cromp/blob/mai
 ```python
 >>> from cromp import CROMPTrain, CROMPPredict
 
->>> df = pd.read_csv("tests/data/house_prices_data.csv")
+>>> df = pd.read_csv("tests/data/ames_house_prices_data.csv")
 >>> df_train = df.iloc[:-50, :]
 >>> df_test = df.iloc[-50:, :]
 
