@@ -95,12 +95,40 @@ def _perform_ut():
     _test_2(df_train, df_test, target_col, feature_cols_in_asc_order)
     _test_3(df_train, df_test, target_col, feature_cols_in_asc_order)
     _test_4(df_train, df_test, target_col, feature_cols_in_asc_order, lb, ub)
+    
+def _perform_st_trend():
+    df = pd.read_csv("tests/data/trend_data.csv")
+    df_train = df.iloc[:-12, :]
+    df_test = df.iloc[-12:, :]
+
+    target_col = 'Cost'
+    feature_cols_in_asc_order = ['Wage1', 'Wage2', 'Wage3']
+
+    min_gap_pct = 0.5
+    lb = 0.0
+    ub = 100.0
+
+    _test_1(df_train, df_test, target_col, feature_cols_in_asc_order, min_gap_pct, lb, ub)
+    _test_2(df_train, df_test, target_col, feature_cols_in_asc_order)
+    _test_3(df_train, df_test, target_col, feature_cols_in_asc_order)
+    _test_4(df_train, df_test, target_col, feature_cols_in_asc_order, lb, ub)
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="CROMP testing pipeline. Use -b option to select benchmarking test with n number of training samples.")
+    msg = "CROMP testing pipeline." + "\nUse -b option to select benchmarking test with n number of training samples." +\
+          "\nUse -s option to select system test (default mode: trend_data, modes supported: trend_data)." +\
+          "\nUse -u option to select unit test."
+    parser = argparse.ArgumentParser(description=msg)
     
-    parser.add_argument("-b", "--Benchmark", default=False, action="store_true", help="select benchmarking test")
-    parser.add_argument("NumTrainSamples", metavar='n', type=int, nargs='?', help="specify number of training samples for benchmarking test")
+    parser.add_argument("-b", "--Benchmark", default=False, action="store_true",\
+                        help="select benchmarking test")
+    parser.add_argument("NumTrainSamples", metavar='n', type=int, nargs='?',\
+                        help="specify number of training samples for benchmarking test")
+    
+    parser.add_argument("-s", "--SystemTest", metavar='mode', type=str, nargs='?', const='trend_data',\
+                        help="select system test (default mode: trend_data, modes supported: trend_data)")
+    
+    parser.add_argument("-u", "--UT", default=False, action="store_true",\
+                        help="select unit test")
     
     args = parser.parse_args()
     
@@ -111,10 +139,19 @@ if __name__ == '__main__':
             _perform_benchmarking(num_training_samples=args.NumTrainSamples)
         else:
             print("\nERROR! Benchmarking test requires number of training samples to be specified.\n")
-    else:
+    elif args.SystemTest:
+        print("\nSystem test with {} mode:".format(args.SystemTest))
+        print("\n=========================\n")
+        if args.SystemTest == 'trend_data':
+            _perform_st_trend()
+        else:
+            print("\nERROR! Unsupported mode specified for system test. Modes supported are: trend_data.\n")
+    elif args.UT:
         print("\nUnit test:")
         print("\n==========\n")
         _perform_ut()
+    else:
+        print(msg)
 
     gc.collect()
     
