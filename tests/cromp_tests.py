@@ -57,8 +57,10 @@ def _test_4(df_train, df_test, target_col, feature_cols_in_asc_order, lb, ub):
     print("Predicted result from Linear LSQ:\n", result)
     print("MAPE from Linear LSQ:", _mape(result, df_test[target_col]))
 
-def _perform_benchmarking(num_training_samples):
-    df = pd.read_excel("tests/data/benchmark_wage_data.xlsx", sheet_name="hc_data")
+def _perform_benchmarking(num_training_samples, data_path:str=None):
+    if not data_path:
+        data_path = "tests/data/benchmark_wage_data.xlsx"
+    df = pd.read_excel(data_path, sheet_name="hc_data")
     
     if num_training_samples >= len(df):
         print("\nERROR! Number of training samples must be lower than the total number of rows in the entire dataset.\n")
@@ -79,8 +81,10 @@ def _perform_benchmarking(num_training_samples):
     _test_3(df_train, df_test, target_col, feature_cols_in_asc_order)
     _test_4(df_train, df_test, target_col, feature_cols_in_asc_order, lb, ub)
 
-def _perform_ut():
-    df = pd.read_csv("tests/data/ames_house_prices_data.csv")
+def _perform_ut(data_path:str=None):
+    if not data_path:
+        data_path = "tests/data/ames_house_prices_data.csv"
+    df = pd.read_csv(data_path)
     df_train = df.iloc[:-50, :]
     df_test = df.iloc[-50:, :]
 
@@ -96,10 +100,12 @@ def _perform_ut():
     _test_3(df_train, df_test, target_col, feature_cols_in_asc_order)
     _test_4(df_train, df_test, target_col, feature_cols_in_asc_order, lb, ub)
     
-def _perform_st_trend():
-    df = pd.read_csv("tests/data/trend_data.csv")
-    df_train = df.iloc[:-12, :]
-    df_test = df.iloc[-12:, :]
+def _perform_st_trend(data_path:str=None):
+    if not data_path:
+        data_path = "tests/data/trend_data.csv"
+    df = pd.read_csv(data_path)
+    df_train = df.iloc[:12, :]
+    df_test = df.iloc[12:, :]
 
     target_col = 'Cost'
     feature_cols_in_asc_order = ['Wage1', 'Wage2', 'Wage3']
@@ -113,9 +119,29 @@ def _perform_st_trend():
     _test_3(df_train, df_test, target_col, feature_cols_in_asc_order)
     _test_4(df_train, df_test, target_col, feature_cols_in_asc_order, lb, ub)
 
+def _perform_st_scb_swe_male_non_manual_pvt_wages(data_path:str=None):
+    if not data_path:
+        data_path = "tests/data/scb_swe_male_non_manual_pvt_wages_data.xlsx"
+    df = pd.read_excel(data_path, sheet_name="data")
+    df_train = df.iloc[:3, :]
+    df_test = df.iloc[3:, :]
+
+    target_col = 'Cost'
+    feature_cols_in_asc_order = ['Wage3', 'Wage2', 'Wage1']
+
+    min_gap_pct = 0.1
+    lb = 40000
+    ub = 100000
+
+    _test_1(df_train, df_test, target_col, feature_cols_in_asc_order, min_gap_pct, lb, ub)
+    _test_2(df_train, df_test, target_col, feature_cols_in_asc_order)
+    _test_3(df_train, df_test, target_col, feature_cols_in_asc_order)
+    _test_4(df_train, df_test, target_col, feature_cols_in_asc_order, lb, ub)
+
 if __name__ == '__main__':
     msg = "CROMP testing pipeline." + "\nUse -b option to select benchmarking test with n number of training samples." +\
-          "\nUse -s option to select system test (default mode: trend_data, modes supported: trend_data)." +\
+          "\nUse -s option to select system test" +\
+          "(default mode: trend, modes supported: scb_swe_male_non_manual_pvt_wages, trend)." +\
           "\nUse -u option to select unit test."
     parser = argparse.ArgumentParser(description=msg)
     
@@ -142,16 +168,22 @@ if __name__ == '__main__':
     elif args.SystemTest:
         print("\nSystem test with {} mode:".format(args.SystemTest))
         print("\n=========================\n")
-        if args.SystemTest == 'trend_data':
+        if args.SystemTest == 'scb_swe_male_non_manual_pvt_wages':
+            _perform_st_scb_swe_male_non_manual_pvt_wages()
+        elif args.SystemTest == 'trend':
             _perform_st_trend()
         else:
-            print("\nERROR! Unsupported mode specified for system test. Modes supported are: trend_data.\n")
+            print("\nERROR! Unsupported mode specified for system test." +\
+                  "Modes supported are: scb_swe_male_non_manual_pvt_wages, trend.\n")
     elif args.UT:
         print("\nUnit test:")
         print("\n==========\n")
         _perform_ut()
     else:
         print(msg)
+
+        # To facilitate debugging
+        #_perform_st_scb_swe_male_non_manual_pvt_wages(data_path="data/scb_swe_male_non_manual_pvt_wages_data.xlsx")
 
     gc.collect()
     

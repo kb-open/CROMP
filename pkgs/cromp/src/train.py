@@ -25,40 +25,12 @@ class CROMPTrain():
         self.len_coeffs = self.len_feats + 1
         self.coeffs = list(np.zeros(self.len_coeffs))
 
-        # Initialize lb and ub constraints
-        min_con_orig = list(np.zeros(self.len_coeffs))
-        if isinstance(lb, list):
-            if len(lb) == self.len_coeffs:
-                min_con_orig = lb
-            elif len(lb) == self.len_coeffs - 1:
-                min_con_orig[1:] = lb
-            else:
-                print("INCORRECT CONFIG: Number of lower bounds do not match with number of features passed!")
-                return False
-        elif lb != 0.0:
-            min_con_orig[1:] = [lb for idx, _ in enumerate(min_con_orig) if idx > 0]
-
-        max_con_orig = [configs['high_val'] for i in range(self.len_coeffs)]
-        if isinstance(ub, list):
-            if len(ub) == self.len_coeffs:
-                max_con_orig = ub
-            elif len(ub) == self.len_coeffs - 1:
-                max_con_orig[1:] = ub
-            else:
-                print("INCORRECT CONFIG: Number of upper bounds do not match with number of features passed!")
-                return False
-        elif ub != configs['high_val']:
-            max_con_orig[1:] = [ub for idx, _ in enumerate(max_con_orig) if idx > 0]
-
-        if no_intercept:
-            min_con_orig[0] = 0.0
-            max_con_orig[0] = configs['low_val']
-
-        # Configure constraints
-        if not self._min_gap_pct_constraint(min_gap_pct):
+        # Configure margin constraints
+        if not self._min_gap_pct_constraints(min_gap_pct):
             return False
 
-        if not self._lb_ub_constraint(min_con_orig, max_con_orig):
+        # Configure bound constraints
+        if not self._configure_bound_constraints(lb, ub, no_intercept):
             return False
 
         if self.verbose:
@@ -70,36 +42,63 @@ class CROMPTrain():
         return True
 
     def train(self) -> (bool, [float]):
-        # Build features amenable for CROMP
-        X = self._feat_eng()
+        self.iter_data = {}
 
-        # Convert independent variables to a matrix
-        X = X.values
+        for self.iter_count in range(self.len_feats):
+            self.iter_data[self.iter_count] = {}
+            self.iter_data[self.iter_count]['min_con_orig'] = self.min_con_orig.copy()
+            self.iter_data[self.iter_count]['max_con_orig'] = self.max_con_orig.copy()
 
-        # Add an array of ones to act as intercept coefficient
-        ones = np.ones(X.shape[0])
-        # Combine array of ones and indepedent variables
-        X = np.concatenate((ones[:, np.newaxis], X), axis=1)
+            # Finalize bound constraints
+            self._finalize_bound_constraints()
 
-        # Convert target variable to a matrix
-        y = self.df[self.target].values
+            # Build features amenable for CROMP
+            X = self._feat_eng()
 
-        # Run optimization
-        results = lsq_linear(X, y, bounds=(self.min_con, self.max_con), lsmr_tol='auto')
-        if self.verbose:
-            print("\nResults:\n", results)
+            # Convert target variable to a matrix
+            y = self.df[self.target].values
 
-        if results.success:
-            # Get the coefficients back to the space of original features
-            self._get_coeff(results)
+            # Run optimization
+            results = lsq_linear(X, y, bounds=(self.min_con, self.max_con), lsmr_tol='auto')
             if self.verbose:
-                print("\nFinal Coefficients (including intercept):", self.coeffs)
-        else:
+                print("\nIteration {}: Results: {}\n".format(self.iter_count, results))
+
+            if results.success:
+                # Get the coefficients back to the space of original features
+                if self._get_coeff(results):
+                    self.iter_data[self.iter_count]['success'] = True
+                    if self.verbose:
+                        print("\nIteration {}: Coefficients (including intercept):".format(self.iter_count, self.coeffs))
+                else:
+                    self.iter_data[self.iter_count]['success'] = False
+            else:
+                self.iter_data[self.iter_count]['success'] = False
+
+            if self.iter_data[self.iter_count]['success']:
+                # Save results
+                self.iter_data[self.iter_count]['results'] = results
+                self.iter_data[self.iter_count]['coeffs'] = self.coeffs
+
+                # Modify bound constraints for next iteration by fixing a coefficient to solved value
+                self.min_con_orig[self.iter_count + 1] = self.coeffs[self.iter_count + 1]
+                self.max_con_orig[self.iter_count + 1] = self.coeffs[self.iter_count + 1] + configs['low_val']
+            else:
+                break
+
+        best_iter = 0
+        success = False
+        for iter in range(self.iter_count + 1):
+            if self.iter_data[iter]['success']:
+                success = True
+                if self.iter_data[iter]['results'].cost < self.iter_data[best_iter]['results'].cost:
+                    best_iter = iter
+
+        if not success:
             print("ERROR: Convergence was not achieved!")
 
-        return results.success, self.coeffs
+        return success, self.iter_data[best_iter]['coeffs']
 
-    def _min_gap_pct_constraint(self, min_gap_pct:[float]) -> bool:
+    def _min_gap_pct_constraints(self, min_gap_pct:[float]) -> bool:
         self.min_gap_pct = list(np.zeros(self.len_feats))
 
         if isinstance(min_gap_pct, list):
@@ -119,7 +118,60 @@ class CROMPTrain():
 
         return True
 
-    def _lb_ub_constraint(self, min_con_orig:[float], max_con_orig:[float]) -> bool:
+    def _configure_bound_constraints(self, lb:[float], ub:[float], no_intercept:bool) -> bool:
+        # Initialize lb constraints
+        min_con_orig = list(np.zeros(self.len_coeffs))
+        if isinstance(lb, list):
+            if len(lb) == self.len_coeffs:
+                min_con_orig = lb
+            elif len(lb) == self.len_coeffs - 1:
+                min_con_orig[1:] = lb
+            else:
+                print("INCORRECT CONFIG: Number of lower bounds do not match with number of features passed!")
+                return False
+        elif lb != 0.0:
+            min_con_orig[1:] = [lb for idx, _ in enumerate(min_con_orig) if idx > 0]
+
+        for i in range(2, self.len_coeffs):
+            min_con_orig[i] = max((1 + self.min_gap_pct[i - 1]) * min_con_orig[i - 1], min_con_orig[i])
+
+        # Initialize ub constraints
+        max_con_orig = [configs['high_val'] for i in range(self.len_coeffs)]
+        if isinstance(ub, list):
+            if len(ub) == self.len_coeffs:
+                max_con_orig = ub
+            elif len(ub) == self.len_coeffs - 1:
+                max_con_orig[1:] = ub
+            else:
+                print("INCORRECT CONFIG: Number of upper bounds do not match with number of features passed!")
+                return False
+        elif ub != configs['high_val']:
+            max_con_orig[1:] = [ub for idx, _ in enumerate(max_con_orig) if idx > 0]
+
+        i = self.len_coeffs - 2
+        while i:
+            max_con_orig[i] = min(max_con_orig[i + 1] / (1 + self.min_gap_pct[i]), max_con_orig[i])
+            i -= 1
+
+        if no_intercept:
+            min_con_orig[0] = 0.0
+            max_con_orig[0] = configs['low_val']
+
+        # Validate bound constraints
+        for i in range(self.len_coeffs):
+            if max_con_orig[i] < min_con_orig[i]:
+                print("INCORRECT CONFIG: Upper and lower bounds do not conform with minimum margins specified!")
+                return False
+
+        self.min_con_orig = min_con_orig
+        self.max_con_orig = max_con_orig
+
+        return True
+
+    def _finalize_bound_constraints(self):
+        min_con_orig = self.iter_data[self.iter_count]['min_con_orig']
+        max_con_orig = self.iter_data[self.iter_count]['max_con_orig']
+
         self.min_con = min_con_orig.copy()
         self.max_con = max_con_orig.copy()
 
@@ -134,9 +186,7 @@ class CROMPTrain():
             self.min_con[i] = max(0, self.min_con[i])
             self.max_con[i] = max(self.min_con[i] + configs['low_val'], self.max_con[i])
 
-        return True
-
-    def _feat_eng(self) -> pd.DataFrame:
+    def _feat_eng(self) -> np.ndarray:
         X = self.df[self.features].copy()
         tmp = X.copy()
 
@@ -153,13 +203,42 @@ class CROMPTrain():
         X = X.drop(self.features, axis=1)
         del tmp
 
+        # Convert independent variables to a matrix
+        X = X.values
+
+        # Add an array of ones to act as intercept coefficient
+        ones = np.ones(X.shape[0])
+        # Combine array of ones and indepedent variables
+        X = np.concatenate((ones[:, np.newaxis], X), axis=1)
+
         return X
 
-    def _get_coeff(self, results:dict):
+    def _get_coeff(self, results:dict) -> bool:
         self.coeffs[0] = results.x[0]
         self.coeffs[1] = results.x[1]
         for i in range(self.len_coeffs - 2):
             self.coeffs[i + 2] = (1 + self.min_gap_pct[i + 1]) * self.coeffs[i + 1] + results.x[i + 2]
+
+        return self._post_hoc_corrections()
+
+    def _post_hoc_corrections(self) -> bool:
+        min_con_orig = self.iter_data[self.iter_count]['min_con_orig']
+        max_con_orig = self.iter_data[self.iter_count]['max_con_orig']
+
+        i = self.len_coeffs - 1
+        while i > 1:
+            if self.coeffs[i] > max_con_orig[i]:
+                self.coeffs[i] = max_con_orig[i]
+                self.coeffs[i - 1] = self.coeffs[i] / (1 + self.min_gap_pct[i - 1])
+            elif self.coeffs[i] < self.coeffs[i - 1]:
+                self.coeffs[i - 1] = self.coeffs[i] / (1 + self.min_gap_pct[i - 1])
+
+            if self.coeffs[i - 1] < min_con_orig[i - 1]:
+                return False
+
+            i -= 1
+
+        return True
 
 if __name__ == '__main__':
     pass
