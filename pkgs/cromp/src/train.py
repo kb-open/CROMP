@@ -16,7 +16,7 @@ class CROMPTrain():
 
     def config_constraints(self, feats_in_asc_order:[str], min_gap_pct:[float]=0.0,
                            feats_in_no_order:[str]=[],
-                           lb:[float]=0.0, ub:[float]=configs['high_val'],
+                           lb:[float]=configs['low_val'], ub:[float]=configs['high_val'],
                            no_intercept:bool=False) -> bool:
         self.feats_in_asc_order = feats_in_asc_order
         self.feats_in_no_order = feats_in_no_order
@@ -46,6 +46,7 @@ class CROMPTrain():
     def train(self, df:pd.DataFrame, target_col:str) -> (bool, dict):
         self.target = target_col
 
+        self.cromp_model = {}
         self.iter_data = {}
 
         for self.iter_count in range(self.len_feats_in_asc_order):
@@ -100,7 +101,6 @@ class CROMPTrain():
         if not success:
             print("ERROR: Convergence was not achieved!")
         else:
-            self.cromp_model = {}
             self.cromp_model['coeffs'] = self.iter_data[self.best_iter]['coeffs']
             self.cromp_model['feats'] =  self.feats_in_asc_order + self.feats_in_no_order
 
@@ -113,12 +113,11 @@ class CROMPTrain():
         self.min_gap_pct = list(np.zeros(self.len_feats_in_asc_order))
 
         if isinstance(min_gap_pct, list):
-            if len(min_gap_pct) == self.len_feats_in_asc_order:
-                self.min_gap_pct[1:] = min_gap_pct[1:]
-            elif len(min_gap_pct) == self.len_feats_in_asc_order - 1:
+            if len(min_gap_pct) == self.len_feats_in_asc_order - 1:
                 self.min_gap_pct[1:] = min_gap_pct
             else:
                 print("INCORRECT CONFIG: Number of percentage gaps do not match with number of feats_in_asc_order passed!")
+                print("Expected: {}, Received: {}".format(self.len_feats_in_asc_order - 1, len(min_gap_pct)))
                 return False
         elif min_gap_pct != 0.0:
             self.min_gap_pct[1:] = [min_gap_pct for idx, _ in enumerate(self.min_gap_pct) if idx > 0]
@@ -131,19 +130,20 @@ class CROMPTrain():
 
     def _bound_constraints(self, lb:[float], ub:[float], no_intercept:bool) -> bool:
         # Initialize lb constraints
-        min_con_orig = list(np.zeros(self.len_coeffs))
+        min_con_orig = [configs['low_val'] for i in range(self.len_coeffs)]
         if isinstance(lb, list):
             if len(lb) == self.len_coeffs:
                 min_con_orig = lb
             elif len(lb) == self.len_coeffs - 1:
                 min_con_orig[1:] = lb
             else:
-                print("INCORRECT CONFIG: Number of lower bounds do not match with number of feats_in_asc_order passed!")
+                print("INCORRECT CONFIG: Number of lower bounds do not match with number of feats_in_asc_order and feats_in_no_order passed!")
+                print("Expected: {} or {}, Received: {}".format(self.len_coeffs, self.len_coeffs - 1, len(lb)))
                 return False
-        elif lb != 0.0:
+        elif lb != configs['low_val']:
             min_con_orig[1:] = [lb for idx, _ in enumerate(min_con_orig) if idx > 0]
 
-        for i in range(2, self.len_coeffs):
+        for i in range(2, self.len_feats_in_asc_order + 1):
             min_con_orig[i] = max((1 + self.min_gap_pct[i - 1]) * min_con_orig[i - 1], min_con_orig[i])
 
         # Initialize ub constraints
@@ -154,12 +154,13 @@ class CROMPTrain():
             elif len(ub) == self.len_coeffs - 1:
                 max_con_orig[1:] = ub
             else:
-                print("INCORRECT CONFIG: Number of upper bounds do not match with number of feats_in_asc_order passed!")
+                print("INCORRECT CONFIG: Number of upper bounds do not match with number of feats_in_asc_order and feats_in_no_order passed!")
+                print("Expected: {} or {}, Received: {}".format(self.len_coeffs, self.len_coeffs - 1, len(ub)))
                 return False
         elif ub != configs['high_val']:
             max_con_orig[1:] = [ub for idx, _ in enumerate(max_con_orig) if idx > 0]
 
-        i = self.len_coeffs - 2
+        i = self.len_feats_in_asc_order - 1
         while i:
             max_con_orig[i] = min(max_con_orig[i + 1] / (1 + self.min_gap_pct[i]), max_con_orig[i])
             i -= 1
@@ -186,15 +187,14 @@ class CROMPTrain():
         self.min_con = min_con_orig.copy()
         self.max_con = max_con_orig.copy()
 
-        for i in range(2, self.len_coeffs):
-            self.min_con[i] = max(self.min_con[i] - (1 + self.min_gap_pct[i - 1]) * min_con_orig[i - 1],
-                                  self.min_con[i] - (1 + self.min_gap_pct[i - 1]) * max_con_orig[i - 1])
+        for i in range(2, self.len_feats_in_asc_order + 1):
+            self.min_con[i] = max(self.min_con_orig[i] - min_con_orig[i - 1] * (1 + self.min_gap_pct[i - 1]),
+                                  self.min_con_orig[i] - max_con_orig[i - 1] * (1 + self.min_gap_pct[i - 1]))
 
-            self.max_con[i] = min(self.max_con[i] - (1 + self.min_gap_pct[i - 1]) * min_con_orig[i - 1],
-                                  self.max_con[i] - (1 + self.min_gap_pct[i - 1]) * max_con_orig[i - 1])
+            self.max_con[i] = min(self.max_con_orig[i] - min_con_orig[i - 1] * (1 + self.min_gap_pct[i - 1]),
+                                  self.max_con_orig[i] - max_con_orig[i - 1] * (1 + self.min_gap_pct[i - 1]))
 
-        for i in range(self.len_coeffs):
-            self.min_con[i] = max(0, self.min_con[i])
+            self.min_con[i] = max(0.0, self.min_con[i])
             self.max_con[i] = max(self.min_con[i] + configs['low_val'], self.max_con[i])
 
     def _feat_eng(self, df) -> np.ndarray:
@@ -214,6 +214,8 @@ class CROMPTrain():
         X = X.drop(self.feats_in_asc_order, axis=1)
         del tmp
 
+        X = pd.concat([X, df[self.feats_in_no_order].copy()], join='inner', axis=1)
+
         # Convert independent variables to a matrix
         X = X.values
 
@@ -227,8 +229,12 @@ class CROMPTrain():
     def _get_coeff(self, results:dict) -> bool:
         self.coeffs[0] = results.x[0]
         self.coeffs[1] = results.x[1]
-        for i in range(self.len_coeffs - 2):
+
+        for i in range(self.len_feats_in_asc_order - 1):
             self.coeffs[i + 2] = (1 + self.min_gap_pct[i + 1]) * self.coeffs[i + 1] + results.x[i + 2]
+
+        for i in range(self.len_feats_in_asc_order + 1, self.len_coeffs):
+            self.coeffs[i] = results.x[i]
 
         return self._post_hoc_corrections()
 
@@ -236,7 +242,7 @@ class CROMPTrain():
         min_con_orig = self.iter_data[self.iter_count]['min_con_orig']
         max_con_orig = self.iter_data[self.iter_count]['max_con_orig']
 
-        i = self.len_coeffs - 1
+        i = self.len_feats_in_asc_order
         while i > 1:
             if self.coeffs[i] > max_con_orig[i]:
                 self.coeffs[i] = max_con_orig[i]

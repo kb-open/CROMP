@@ -4,6 +4,7 @@
 # Author: Kaushik Bar (email: kb.opendev@gmail.com)
 
 import gc, argparse
+import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
 from scipy.optimize import lsq_linear
@@ -12,10 +13,13 @@ from cromp import CROMPTrain, CROMPPredict
 def _mape(predictions, actuals):
     return abs((predictions - actuals) / actuals).mean()
 
-def _test_1(df_train, df_test, target_col, feats_in_asc_order,
-            min_gap_pct, lb, ub):
+def _test_1(df_train, df_test, target_col,
+            feats_in_asc_order, min_gap_pct,
+            feats_in_no_order,
+            lb, ub):
     model = CROMPTrain()
     ret_success = model.config_constraints(feats_in_asc_order, min_gap_pct=min_gap_pct,\
+                                           feats_in_no_order=feats_in_no_order,\
                                            lb=lb, ub=ub)
     if ret_success:
         ret_success, cromp_model = model.train(df_train, target_col)
@@ -72,15 +76,16 @@ def _perform_benchmarking(num_training_samples, data_path:str=None):
 
     target_col = 'TotalWageCost_Values'
     feats_in_asc_order = ['HeadCount_DS_1', 'HeadCount_DS_3', 'HeadCount_Sr_DS_2', 'HeadCount_Sr_DS_1', 'HeadCount_DS_2']
+    feats_in_no_order = []
 
     min_gap_pct = [0.13, 0.51, 0.09, 0.03]
     lb = [56, 64, 108, 97, 111]
     ub = [95, 106, 171, 160, 176]
 
-    _test_1(df_train, df_test, target_col, feats_in_asc_order, min_gap_pct, lb, ub)
-    _test_2(df_train, df_test, target_col, feats_in_asc_order)
-    _test_3(df_train, df_test, target_col, feats_in_asc_order)
-    _test_4(df_train, df_test, target_col, feats_in_asc_order, lb, ub)
+    _test_1(df_train, df_test, target_col, feats_in_asc_order, min_gap_pct, feats_in_no_order, lb, ub)
+    _test_2(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order)
+    _test_3(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order)
+    _test_4(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order, lb, ub)
 
 def _perform_ut(data_path:str=None):
     if not data_path:
@@ -91,15 +96,16 @@ def _perform_ut(data_path:str=None):
 
     target_col = 'SalePrice'
     feats_in_asc_order = ['1stFlrSF', 'TotalBsmtSF', 'GrLivArea']
+    feats_in_no_order = []
 
     min_gap_pct = 0.5
     lb = 0.0
     ub = 100.0
 
-    _test_1(df_train, df_test, target_col, feats_in_asc_order, min_gap_pct, lb, ub)
-    _test_2(df_train, df_test, target_col, feats_in_asc_order)
-    _test_3(df_train, df_test, target_col, feats_in_asc_order)
-    _test_4(df_train, df_test, target_col, feats_in_asc_order, lb, ub)
+    _test_1(df_train, df_test, target_col, feats_in_asc_order, min_gap_pct, feats_in_no_order, lb, ub)
+    _test_2(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order)
+    _test_3(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order)
+    _test_4(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order, lb, ub)
     
 def _perform_st_trend(data_path:str=None):
     if not data_path:
@@ -110,15 +116,16 @@ def _perform_st_trend(data_path:str=None):
 
     target_col = 'Cost'
     feats_in_asc_order = ['HC1', 'HC2', 'HC3']
+    feats_in_no_order = ['Idx']
 
-    min_gap_pct = 0.5
-    lb = 0.0
-    ub = 100.0
+    min_gap_pct = [0.5, 0.1]
+    lb = 10.0
+    ub = [100.0, 100.0, 1e3, np.inf]
 
-    _test_1(df_train, df_test, target_col, feats_in_asc_order, min_gap_pct, lb, ub)
-    _test_2(df_train, df_test, target_col, feats_in_asc_order)
-    _test_3(df_train, df_test, target_col, feats_in_asc_order)
-    _test_4(df_train, df_test, target_col, feats_in_asc_order, lb, ub)
+    _test_1(df_train, df_test, target_col, feats_in_asc_order, min_gap_pct, feats_in_no_order, lb, ub)
+    _test_2(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order)
+    _test_3(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order)
+    _test_4(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order, lb, ub)
 
 def _perform_st_scb_swe_male_non_manual_pvt_wages(data_path:str=None):
     if not data_path:
@@ -129,15 +136,16 @@ def _perform_st_scb_swe_male_non_manual_pvt_wages(data_path:str=None):
 
     target_col = 'Cost'
     feats_in_asc_order = ['HC3', 'HC2', 'HC1']
+    feats_in_no_order = []
 
     min_gap_pct = 0.1
     lb = 40000
     ub = 100000
 
-    _test_1(df_train, df_test, target_col, feats_in_asc_order, min_gap_pct, lb, ub)
-    _test_2(df_train, df_test, target_col, feats_in_asc_order)
-    _test_3(df_train, df_test, target_col, feats_in_asc_order)
-    _test_4(df_train, df_test, target_col, feats_in_asc_order, lb, ub)
+    _test_1(df_train, df_test, target_col, feats_in_asc_order, min_gap_pct, feats_in_no_order, lb, ub)
+    _test_2(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order)
+    _test_3(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order)
+    _test_4(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order, lb, ub)
 
 if __name__ == '__main__':
     msg = "CROMP testing pipeline." + "\nUse -b option to select benchmarking test with n number of training samples." +\
@@ -184,7 +192,10 @@ if __name__ == '__main__':
         print(msg)
 
         # To facilitate debugging
-        _perform_st_scb_swe_male_non_manual_pvt_wages(data_path="data/scb_swe_male_non_manual_pvt_wages_data.xlsx")
+        #_perform_ut(data_path="data/ames_house_prices_data.csv")
+        #_perform_benchmarking(num_training_samples=12, data_path="data/benchmark_wage_data.xlsx")
+        #_perform_st_scb_swe_male_non_manual_pvt_wages(data_path="data/scb_swe_male_non_manual_pvt_wages_data.xlsx")
+        #_perform_st_trend(data_path="data/trend_data.csv")
 
     gc.collect()
     
