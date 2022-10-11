@@ -1,6 +1,6 @@
 [project]
 name = "cromp"
-version = "0.0.5"
+version = "0.0.6"
 authors = [{name = "Kaushik Bar", email = "kb.opendev@gmail.com"},]
 description = "The official implementation of CROMP (Constrained Regression with Ordered and Margin-sensitive Parameters). CROMP allows user-defined order among the coefficients, user-defined minimum margins (i.e., percentage gaps) between them, and user-defined lower and upper bounds for each coefficient."
 readme = "README.md"
