@@ -54,12 +54,13 @@ Please go through the [tests](https://github.com/kb-open/cromp/blob/main/tests/c
 
 >>> target_col = 'SalePrice'
 >>> feats_in_asc_order = ['1stFlrSF', 'TotalBsmtSF', 'GrLivArea']
+>>> feats_in_no_order = []
 
 >>> # Instantiate model
 >>> model = CROMPTrain()
 
 >>> # Configure constraints
->>> ret_success = model.config_constraints(feats_in_asc_order, min_gap_pct=0.5, lb=0.0, ub=100.0, no_intercept=True)
+>>> ret_success = model.config_constraints(feats_in_asc_order, min_gap_pct=0.5, feats_in_no_order, lb=0.0, ub=100.0, no_intercept=True)
 
 >>> # Train
 >>> ret_success, cromp_model = model.train(df_train, target_col)
