@@ -3,26 +3,28 @@
 # Licensed under the MIT license
 # Author: Kaushik Bar (email: kb.opendev@gmail.com)
 
+from joblib import dump
 import numpy as np
 import pandas as pd
 from scipy.optimize import lsq_linear
 
-configs = {'low_val': 0.0001, 'high_val': np.inf}
+configs = {'low_val': 1e-10, 'high_val': np.inf}
 
 class CROMPTrain():
     def __init__(self, verbose:bool=False):
         self.verbose = verbose
 
-    def configure(self, df:pd.DataFrame, target_col:str, feature_cols_in_asc_order:[str],
-                  min_gap_pct:[float]=0.0, lb:[float]=0.0, ub:[float]=configs['high_val'],
-                  no_intercept:bool=False) -> bool:
-        self.df = df
-        self.target = target_col
-        self.features = feature_cols_in_asc_order
+    def config_constraints(self, feats_in_asc_order:[str], min_gap_pct:[float]=0.0,
+                           feats_in_no_order:[str]=[],
+                           lb:[float]=0.0, ub:[float]=configs['high_val'],
+                           no_intercept:bool=False) -> bool:
+        self.feats_in_asc_order = feats_in_asc_order
+        self.feats_in_no_order = feats_in_no_order
 
         # Initialize coefficients
-        self.len_feats = len(self.features)
-        self.len_coeffs = self.len_feats + 1
+        self.len_feats_in_asc_order = len(self.feats_in_asc_order)
+        self.len_feats_in_no_order = len(self.feats_in_no_order)
+        self.len_coeffs = 1 + self.len_feats_in_asc_order + self.len_feats_in_no_order
         self.coeffs = list(np.zeros(self.len_coeffs))
 
         # Configure margin constraints
@@ -30,7 +32,7 @@ class CROMPTrain():
             return False
 
         # Configure bound constraints
-        if not self._configure_bound_constraints(lb, ub, no_intercept):
+        if not self._bound_constraints(lb, ub, no_intercept):
             return False
 
         if self.verbose:
@@ -41,10 +43,12 @@ class CROMPTrain():
 
         return True
 
-    def train(self) -> (bool, [float]):
+    def train(self, df:pd.DataFrame, target_col:str) -> (bool, dict):
+        self.target = target_col
+
         self.iter_data = {}
 
-        for self.iter_count in range(self.len_feats):
+        for self.iter_count in range(self.len_feats_in_asc_order):
             self.iter_data[self.iter_count] = {}
             self.iter_data[self.iter_count]['min_con_orig'] = self.min_con_orig.copy()
             self.iter_data[self.iter_count]['max_con_orig'] = self.max_con_orig.copy()
@@ -52,11 +56,11 @@ class CROMPTrain():
             # Finalize bound constraints
             self._finalize_bound_constraints()
 
-            # Build features amenable for CROMP
-            X = self._feat_eng()
+            # Build feats_in_asc_order amenable for CROMP
+            X = self._feat_eng(df)
 
             # Convert target variable to a matrix
-            y = self.df[self.target].values
+            y = df[self.target].values
 
             # Run optimization
             results = lsq_linear(X, y, bounds=(self.min_con, self.max_con), lsmr_tol='auto')
@@ -64,7 +68,7 @@ class CROMPTrain():
                 print("\nIteration {}: Results: {}\n".format(self.iter_count, results))
 
             if results.success:
-                # Get the coefficients back to the space of original features
+                # Get the coefficients back to the space of original feats_in_asc_order
                 if self._get_coeff(results):
                     self.iter_data[self.iter_count]['success'] = True
                     if self.verbose:
@@ -85,29 +89,36 @@ class CROMPTrain():
             else:
                 break
 
-        best_iter = 0
+        self.best_iter = 0
         success = False
         for iter in range(self.iter_count + 1):
             if self.iter_data[iter]['success']:
                 success = True
-                if self.iter_data[iter]['results'].cost < self.iter_data[best_iter]['results'].cost:
-                    best_iter = iter
+                if self.iter_data[iter]['results'].cost < self.iter_data[self.best_iter]['results'].cost:
+                    self.best_iter = iter
 
         if not success:
             print("ERROR: Convergence was not achieved!")
+        else:
+            self.cromp_model = {}
+            self.cromp_model['coeffs'] = self.iter_data[self.best_iter]['coeffs']
+            self.cromp_model['feats'] =  self.feats_in_asc_order + self.feats_in_no_order
 
-        return success, self.iter_data[best_iter]['coeffs']
+        return success, self.cromp_model
+
+    def save(self, path:str):
+        dump(self.cromp_model, path.rstrip('/') + '/cromp_model.joblib')
 
     def _min_gap_pct_constraints(self, min_gap_pct:[float]) -> bool:
-        self.min_gap_pct = list(np.zeros(self.len_feats))
+        self.min_gap_pct = list(np.zeros(self.len_feats_in_asc_order))
 
         if isinstance(min_gap_pct, list):
-            if len(min_gap_pct) == self.len_feats:
+            if len(min_gap_pct) == self.len_feats_in_asc_order:
                 self.min_gap_pct[1:] = min_gap_pct[1:]
-            elif len(min_gap_pct) == self.len_feats - 1:
+            elif len(min_gap_pct) == self.len_feats_in_asc_order - 1:
                 self.min_gap_pct[1:] = min_gap_pct
             else:
-                print("INCORRECT CONFIG: Number of percentage gaps do not match with number of features passed!")
+                print("INCORRECT CONFIG: Number of percentage gaps do not match with number of feats_in_asc_order passed!")
                 return False
         elif min_gap_pct != 0.0:
             self.min_gap_pct[1:] = [min_gap_pct for idx, _ in enumerate(self.min_gap_pct) if idx > 0]
@@ -118,7 +129,7 @@ class CROMPTrain():
 
         return True
 
-    def _configure_bound_constraints(self, lb:[float], ub:[float], no_intercept:bool) -> bool:
+    def _bound_constraints(self, lb:[float], ub:[float], no_intercept:bool) -> bool:
         # Initialize lb constraints
         min_con_orig = list(np.zeros(self.len_coeffs))
         if isinstance(lb, list):
@@ -127,7 +138,7 @@ class CROMPTrain():
             elif len(lb) == self.len_coeffs - 1:
                 min_con_orig[1:] = lb
             else:
-                print("INCORRECT CONFIG: Number of lower bounds do not match with number of features passed!")
+                print("INCORRECT CONFIG: Number of lower bounds do not match with number of feats_in_asc_order passed!")
                 return False
         elif lb != 0.0:
             min_con_orig[1:] = [lb for idx, _ in enumerate(min_con_orig) if idx > 0]
@@ -143,7 +154,7 @@ class CROMPTrain():
             elif len(ub) == self.len_coeffs - 1:
                 max_con_orig[1:] = ub
             else:
-                print("INCORRECT CONFIG: Number of upper bounds do not match with number of features passed!")
+                print("INCORRECT CONFIG: Number of upper bounds do not match with number of feats_in_asc_order passed!")
                 return False
         elif ub != configs['high_val']:
             max_con_orig[1:] = [ub for idx, _ in enumerate(max_con_orig) if idx > 0]
@@ -186,21 +197,21 @@ class CROMPTrain():
             self.min_con[i] = max(0, self.min_con[i])
             self.max_con[i] = max(self.min_con[i] + configs['low_val'], self.max_con[i])
 
-    def _feat_eng(self) -> np.ndarray:
-        X = self.df[self.features].copy()
+    def _feat_eng(self, df) -> np.ndarray:
+        X = df[self.feats_in_asc_order].copy()
         tmp = X.copy()
 
-        i = self.len_feats
-        tmp[f'F{i}'] = tmp[self.features[i - 1]]
+        i = self.len_feats_in_asc_order
+        tmp[f'F{i}'] = tmp[self.feats_in_asc_order[i - 1]]
 
         while (i - 1):
-            tmp[f'F{i-1}'] = (1 + self.min_gap_pct[i - 1]) * tmp[f'F{i}'] + tmp[self.features[i - 2]]
+            tmp[f'F{i-1}'] = (1 + self.min_gap_pct[i - 1]) * tmp[f'F{i}'] + tmp[self.feats_in_asc_order[i - 2]]
             i -= 1
 
-        for i in range(self.len_feats):
+        for i in range(self.len_feats_in_asc_order):
             X[f'F{i+1}'] = tmp[f'F{i+1}']
 
-        X = X.drop(self.features, axis=1)
+        X = X.drop(self.feats_in_asc_order, axis=1)
         del tmp
 
         # Convert independent variables to a matrix

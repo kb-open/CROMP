@@ -12,47 +12,48 @@ from cromp import CROMPTrain, CROMPPredict
 def _mape(predictions, actuals):
     return abs((predictions - actuals) / actuals).mean()
 
-def _test_1(df_train, df_test, target_col, feature_cols_in_asc_order,
-                 min_gap_pct, lb, ub):
+def _test_1(df_train, df_test, target_col, feats_in_asc_order,
+            min_gap_pct, lb, ub):
     model = CROMPTrain()
-    ret_success = model.configure(df_train, target_col, feature_cols_in_asc_order, min_gap_pct, lb, ub)
+    ret_success = model.config_constraints(feats_in_asc_order, min_gap_pct=min_gap_pct,\
+                                           lb=lb, ub=ub)
     if ret_success:
-        ret_success, wages = model.train()
+        ret_success, cromp_model = model.train(df_train, target_col)
 
     if ret_success:
-        print("\nPredicted intercept from CROMP:", wages[0])
-        print("Predicted coefficients from CROMP:", wages[1:])
+        print("\nPredicted intercept from CROMP:", cromp_model['coeffs'][0])
+        print("Predicted coefficients from CROMP:", cromp_model['coeffs'][1:])
 
-        model = CROMPPredict(wages)
-        ret_success, result = model.predict(df_test, feature_cols_in_asc_order)
+        model = CROMPPredict(cromp_model)
+        result = model.predict(df_test)
         if ret_success:
             print("Predicted result from CROMP:\n", result)
             print("MAPE from CROMP:", _mape(result, df_test[target_col]))
 
-def _test_2(df_train, df_test, target_col, feature_cols_in_asc_order):
+def _test_2(df_train, df_test, target_col, feats_in_asc_order):
     model = LinearRegression()
-    model.fit(df_train[feature_cols_in_asc_order], df_train[target_col])
+    model.fit(df_train[feats_in_asc_order], df_train[target_col])
     print("\nPredicted intercept from MLR:", model.intercept_)
     print("Predicted coefficients from MLR:", model.coef_)
 
-    result = model.predict(df_test[feature_cols_in_asc_order])
+    result = model.predict(df_test[feats_in_asc_order])
     print("Predicted result from MLR:\n", result)
     print("MAPE from MLR:", _mape(result, df_test[target_col]))
 
-def _test_3(df_train, df_test, target_col, feature_cols_in_asc_order):
+def _test_3(df_train, df_test, target_col, feats_in_asc_order):
     model = LinearRegression(fit_intercept=False)
-    model.fit(df_train[feature_cols_in_asc_order], df_train[target_col])
+    model.fit(df_train[feats_in_asc_order], df_train[target_col])
     print("\nPredicted coefficients from MLR without intercept:", model.coef_)
 
-    result = model.predict(df_test[feature_cols_in_asc_order])
+    result = model.predict(df_test[feats_in_asc_order])
     print("Predicted result from MLR without intercept:\n", result)
     print("MAPE from MLR without intercept:", _mape(result, df_test[target_col]))
 
-def _test_4(df_train, df_test, target_col, feature_cols_in_asc_order, lb, ub):
-    model = lsq_linear(df_train[feature_cols_in_asc_order], df_train[target_col], bounds=(lb, ub))
+def _test_4(df_train, df_test, target_col, feats_in_asc_order, lb, ub):
+    model = lsq_linear(df_train[feats_in_asc_order], df_train[target_col], bounds=(lb, ub))
     print("\nPredicted coefficients from Linear LSQ:", model.x)
 
-    result = df_test.apply(lambda row: sum([x * y for x, y in zip(model.x, row[feature_cols_in_asc_order])]),
+    result = df_test.apply(lambda row: sum([x * y for x, y in zip(model.x, row[feats_in_asc_order])]),
                            axis=1)
     print("Predicted result from Linear LSQ:\n", result)
     print("MAPE from Linear LSQ:", _mape(result, df_test[target_col]))
@@ -70,16 +71,16 @@ def _perform_benchmarking(num_training_samples, data_path:str=None):
     df_test = df.iloc[num_training_samples:, :]
 
     target_col = 'TotalWageCost_Values'
-    feature_cols_in_asc_order = ['HeadCount_DS_1', 'HeadCount_DS_3', 'HeadCount_Sr_DS_2', 'HeadCount_Sr_DS_1', 'HeadCount_DS_2']
+    feats_in_asc_order = ['HeadCount_DS_1', 'HeadCount_DS_3', 'HeadCount_Sr_DS_2', 'HeadCount_Sr_DS_1', 'HeadCount_DS_2']
 
     min_gap_pct = [0.13, 0.51, 0.09, 0.03]
     lb = [56, 64, 108, 97, 111]
     ub = [95, 106, 171, 160, 176]
 
-    _test_1(df_train, df_test, target_col, feature_cols_in_asc_order, min_gap_pct, lb, ub)
-    _test_2(df_train, df_test, target_col, feature_cols_in_asc_order)
-    _test_3(df_train, df_test, target_col, feature_cols_in_asc_order)
-    _test_4(df_train, df_test, target_col, feature_cols_in_asc_order, lb, ub)
+    _test_1(df_train, df_test, target_col, feats_in_asc_order, min_gap_pct, lb, ub)
+    _test_2(df_train, df_test, target_col, feats_in_asc_order)
+    _test_3(df_train, df_test, target_col, feats_in_asc_order)
+    _test_4(df_train, df_test, target_col, feats_in_asc_order, lb, ub)
 
 def _perform_ut(data_path:str=None):
     if not data_path:
@@ -89,16 +90,16 @@ def _perform_ut(data_path:str=None):
     df_test = df.iloc[-50:, :]
 
     target_col = 'SalePrice'
-    feature_cols_in_asc_order = ['1stFlrSF', 'TotalBsmtSF', 'GrLivArea']
+    feats_in_asc_order = ['1stFlrSF', 'TotalBsmtSF', 'GrLivArea']
 
     min_gap_pct = 0.5
     lb = 0.0
     ub = 100.0
 
-    _test_1(df_train, df_test, target_col, feature_cols_in_asc_order, min_gap_pct, lb, ub)
-    _test_2(df_train, df_test, target_col, feature_cols_in_asc_order)
-    _test_3(df_train, df_test, target_col, feature_cols_in_asc_order)
-    _test_4(df_train, df_test, target_col, feature_cols_in_asc_order, lb, ub)
+    _test_1(df_train, df_test, target_col, feats_in_asc_order, min_gap_pct, lb, ub)
+    _test_2(df_train, df_test, target_col, feats_in_asc_order)
+    _test_3(df_train, df_test, target_col, feats_in_asc_order)
+    _test_4(df_train, df_test, target_col, feats_in_asc_order, lb, ub)
     
 def _perform_st_trend(data_path:str=None):
     if not data_path:
@@ -108,16 +109,16 @@ def _perform_st_trend(data_path:str=None):
     df_test = df.iloc[12:, :]
 
     target_col = 'Cost'
-    feature_cols_in_asc_order = ['Wage1', 'Wage2', 'Wage3']
+    feats_in_asc_order = ['HC1', 'HC2', 'HC3']
 
     min_gap_pct = 0.5
     lb = 0.0
     ub = 100.0
 
-    _test_1(df_train, df_test, target_col, feature_cols_in_asc_order, min_gap_pct, lb, ub)
-    _test_2(df_train, df_test, target_col, feature_cols_in_asc_order)
-    _test_3(df_train, df_test, target_col, feature_cols_in_asc_order)
-    _test_4(df_train, df_test, target_col, feature_cols_in_asc_order, lb, ub)
+    _test_1(df_train, df_test, target_col, feats_in_asc_order, min_gap_pct, lb, ub)
+    _test_2(df_train, df_test, target_col, feats_in_asc_order)
+    _test_3(df_train, df_test, target_col, feats_in_asc_order)
+    _test_4(df_train, df_test, target_col, feats_in_asc_order, lb, ub)
 
 def _perform_st_scb_swe_male_non_manual_pvt_wages(data_path:str=None):
     if not data_path:
@@ -127,16 +128,16 @@ def _perform_st_scb_swe_male_non_manual_pvt_wages(data_path:str=None):
     df_test = df.iloc[3:, :]
 
     target_col = 'Cost'
-    feature_cols_in_asc_order = ['Wage3', 'Wage2', 'Wage1']
+    feats_in_asc_order = ['HC3', 'HC2', 'HC1']
 
     min_gap_pct = 0.1
     lb = 40000
     ub = 100000
 
-    _test_1(df_train, df_test, target_col, feature_cols_in_asc_order, min_gap_pct, lb, ub)
-    _test_2(df_train, df_test, target_col, feature_cols_in_asc_order)
-    _test_3(df_train, df_test, target_col, feature_cols_in_asc_order)
-    _test_4(df_train, df_test, target_col, feature_cols_in_asc_order, lb, ub)
+    _test_1(df_train, df_test, target_col, feats_in_asc_order, min_gap_pct, lb, ub)
+    _test_2(df_train, df_test, target_col, feats_in_asc_order)
+    _test_3(df_train, df_test, target_col, feats_in_asc_order)
+    _test_4(df_train, df_test, target_col, feats_in_asc_order, lb, ub)
 
 if __name__ == '__main__':
     msg = "CROMP testing pipeline." + "\nUse -b option to select benchmarking test with n number of training samples." +\
@@ -183,7 +184,7 @@ if __name__ == '__main__':
         print(msg)
 
         # To facilitate debugging
-        #_perform_st_scb_swe_male_non_manual_pvt_wages(data_path="data/scb_swe_male_non_manual_pvt_wages_data.xlsx")
+        _perform_st_scb_swe_male_non_manual_pvt_wages(data_path="data/scb_swe_male_non_manual_pvt_wages_data.xlsx")
 
     gc.collect()
     

@@ -53,18 +53,20 @@ Please go through the [tests](https://github.com/kb-open/cromp/blob/main/tests/c
 >>> df_test = df.iloc[-50:, :]
 
 >>> target_col = 'SalePrice'
->>> feature_cols_in_asc_order = ['1stFlrSF', 'TotalBsmtSF', 'GrLivArea']
+>>> feats_in_asc_order = ['1stFlrSF', 'TotalBsmtSF', 'GrLivArea']
 
->>> # Instantiate and configure
+>>> # Instantiate model
 >>> model = CROMPTrain()
->>> ret_success = model.configure(df_train, target_col, feature_cols_in_asc_order, min_gap_pct=0.5, lb=0.0, ub=100.0, no_intercept=True)
+
+>>> # Configure constraints
+>>> ret_success = model.config_constraints(feats_in_asc_order, min_gap_pct=0.5, lb=0.0, ub=100.0, no_intercept=True)
 
 >>> # Train
->>> ret_success, wages = model.train()
+>>> ret_success, cromp_model = model.train(df_train, target_col)
 
 >>> # Predict
->>> model = CROMPPredict(wages)
->>> ret_success, result = model.predict(df_test, feature_cols_in_asc_order)
+>>> model = CROMPPredict(cromp_model)
+>>> result = model.predict(df_test)
 ```
 
 ---------------------------
