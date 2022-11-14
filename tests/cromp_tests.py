@@ -191,11 +191,11 @@ if __name__ == '__main__':
     else:
         print(msg)
 
-        # To facilitate debugging
+        # For debugging purposes only
         #_perform_ut(data_path="data/ames_house_prices_data.csv")
         #_perform_benchmarking(num_training_samples=12, data_path="data/benchmark_wage_data.xlsx")
         #_perform_st_scb_swe_male_non_manual_pvt_wages(data_path="data/scb_swe_male_non_manual_pvt_wages_data.xlsx")
-        #_perform_st_trend(data_path="data/trend_data.csv")
+        _perform_st_trend(data_path="data/trend_data.csv")
 
     gc.collect()
     

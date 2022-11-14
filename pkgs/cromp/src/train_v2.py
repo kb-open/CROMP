@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import lsq_linear
 
-configs = {'low_val': 1e-10, 'high_val': np.inf}
+configs = {'low_val': 1e-10, 'high_val': np.inf, 'tol': 1e-12}
 
 class CROMPTrain():
     def __init__(self, verbose:bool=False):
@@ -49,10 +49,8 @@ class CROMPTrain():
         self.cromp_model = {}
         self.iter_data = {}
 
-        for self.iter_count in range(self.len_feats_in_asc_order):
-            self.iter_data[self.iter_count] = {}
-            self.iter_data[self.iter_count]['min_con_orig'] = self.min_con_orig.copy()
-            self.iter_data[self.iter_count]['max_con_orig'] = self.max_con_orig.copy()
+        for self.focal_coeff_idx in range(1, self.len_feats_in_asc_order + 1):
+            self.iter_data[self.focal_coeff_idx] = {}
 
             # Finalize bound constraints
             self._finalize_bound_constraints()
@@ -66,42 +64,39 @@ class CROMPTrain():
             # Run optimization
             results = lsq_linear(X, y, bounds=(self.min_con, self.max_con), lsmr_tol='auto')
             if self.verbose:
-                print("\nIteration {}: Results: {}\n".format(self.iter_count, results))
+                print("\nFocal coefficient {}: Results: {}\n".format(self.focal_coeff_idx, results))
 
             if results.success:
                 # Get the coefficients back to the space of original feats_in_asc_order
                 if self._get_coeff(results):
-                    self.iter_data[self.iter_count]['success'] = True
+                    self.iter_data[self.focal_coeff_idx]['success'] = True
                     if self.verbose:
-                        print("\nIteration {}: Coefficients (including intercept):".format(self.iter_count, self.coeffs))
+                        print("\nFocal coefficient {}: Coefficients (including intercept):".format(self.focal_coeff_idx,
+                                                                                                   self.coeffs))
                 else:
-                    self.iter_data[self.iter_count]['success'] = False
+                    self.iter_data[self.focal_coeff_idx]['success'] = False
             else:
-                self.iter_data[self.iter_count]['success'] = False
+                self.iter_data[self.focal_coeff_idx]['success'] = False
 
-            if self.iter_data[self.iter_count]['success']:
+            if self.iter_data[self.focal_coeff_idx]['success']:
                 # Save results
-                self.iter_data[self.iter_count]['results'] = results
-                self.iter_data[self.iter_count]['coeffs'] = self.coeffs
+                self.iter_data[self.focal_coeff_idx]['results'] = results
+                self.iter_data[self.focal_coeff_idx]['coeffs'] = self.coeffs
 
-                # Modify bound constraints for next iteration by fixing a coefficient to solved value
-                self.min_con_orig[self.iter_count + 1] = self.coeffs[self.iter_count + 1]
-                self.max_con_orig[self.iter_count + 1] = self.coeffs[self.iter_count + 1] + configs['low_val']
-            else:
-                break
-
-        self.best_iter = 0
+        self.best_focal_coeff_idx = 1
         success = False
-        for iter in range(self.iter_count + 1):
-            if self.iter_data[iter]['success']:
-                success = True
-                if self.iter_data[iter]['results'].cost < self.iter_data[self.best_iter]['results'].cost:
-                    self.best_iter = iter
+        for focal_coeff_idx in range(1, self.len_feats_in_asc_order + 1):
+            if self.iter_data[focal_coeff_idx]['success']:
+                if not success:
+                    success = True
+                    self.best_focal_coeff_idx = focal_coeff_idx
+                elif self.iter_data[focal_coeff_idx]['results'].cost < self.iter_data[self.best_focal_coeff_idx]['results'].cost:
+                    self.best_focal_coeff_idx = focal_coeff_idx
 
         if not success:
             print("ERROR: Convergence was not achieved!")
         else:
-            self.cromp_model['coeffs'] = self.iter_data[self.best_iter]['coeffs']
+            self.cromp_model['coeffs'] = self.iter_data[self.best_focal_coeff_idx]['coeffs']
             self.cromp_model['feats'] =  self.feats_in_asc_order + self.feats_in_no_order
 
         return success, self.cromp_model
@@ -116,7 +111,7 @@ class CROMPTrain():
             if len(min_gap_pct) == self.len_feats_in_asc_order - 1:
                 self.min_gap_pct[1:] = min_gap_pct
             else:
-                print("INCORRECT CONFIG: Number of percentage gaps do not match with number of feats_in_asc_order passed!")
+                print("INCORRECT CONFIG: Length of percentage gaps do not match with length of feats_in_asc_order passed!")
                 print("Expected: {}, Received: {}".format(self.len_feats_in_asc_order - 1, len(min_gap_pct)))
                 return False
         elif min_gap_pct != 0.0:
@@ -137,14 +132,11 @@ class CROMPTrain():
             elif len(lb) == self.len_coeffs - 1:
                 min_con_orig[1:] = lb
             else:
-                print("INCORRECT CONFIG: Number of lower bounds do not match with number of feats_in_asc_order and feats_in_no_order passed!")
+                print("INCORRECT CONFIG: Number of lower bounds do not match with lengths of feats_in_asc_order and feats_in_no_order passed!")
                 print("Expected: {} or {}, Received: {}".format(self.len_coeffs, self.len_coeffs - 1, len(lb)))
                 return False
         elif lb != configs['low_val']:
             min_con_orig[1:] = [lb for idx, _ in enumerate(min_con_orig) if idx > 0]
-
-        for i in range(2, self.len_feats_in_asc_order + 1):
-            min_con_orig[i] = max((1 + self.min_gap_pct[i - 1]) * min_con_orig[i - 1], min_con_orig[i])
 
         # Initialize ub constraints
         max_con_orig = [configs['high_val'] for i in range(self.len_coeffs)]
@@ -159,6 +151,14 @@ class CROMPTrain():
                 return False
         elif ub != configs['high_val']:
             max_con_orig[1:] = [ub for idx, _ in enumerate(max_con_orig) if idx > 0]
+
+        # Sanitize bound constraints
+        for i in range(1, self.len_feats_in_asc_order + 1):
+            min_con_orig[i] = min(configs['high_val'], min_con_orig[i])
+            max_con_orig[i] = min(configs['high_val'], max_con_orig[i])
+
+        for i in range(2, self.len_feats_in_asc_order + 1):
+            min_con_orig[i] = max((1 + self.min_gap_pct[i - 1]) * min_con_orig[i - 1], min_con_orig[i])
 
         i = self.len_feats_in_asc_order - 1
         while i:
@@ -181,38 +181,45 @@ class CROMPTrain():
         return True
 
     def _finalize_bound_constraints(self):
-        min_con_orig = self.iter_data[self.iter_count]['min_con_orig']
-        max_con_orig = self.iter_data[self.iter_count]['max_con_orig']
+        self.min_con = self.min_con_orig.copy()
+        self.max_con = self.max_con_orig.copy()
 
-        self.min_con = min_con_orig.copy()
-        self.max_con = max_con_orig.copy()
+        for i in range(self.focal_coeff_idx + 1, self.len_feats_in_asc_order + 1):
+            self.min_con[i] = max(0,
+                                  self.min_con_orig[i] - self.max_con_orig[i - 1] * (1 + self.min_gap_pct[i - 1]))
+            self.max_con[i] = max(self.min_con[i] + configs['low_val'],
+                                  self.max_con_orig[i] - self.min_con_orig[i - 1] * (1 + self.min_gap_pct[i - 1]))
 
-        for i in range(2, self.len_feats_in_asc_order + 1):
-            self.min_con[i] = max(self.min_con_orig[i] - min_con_orig[i - 1] * (1 + self.min_gap_pct[i - 1]),
-                                  self.min_con_orig[i] - max_con_orig[i - 1] * (1 + self.min_gap_pct[i - 1]))
-
-            self.max_con[i] = min(self.max_con_orig[i] - min_con_orig[i - 1] * (1 + self.min_gap_pct[i - 1]),
-                                  self.max_con_orig[i] - max_con_orig[i - 1] * (1 + self.min_gap_pct[i - 1]))
-
-            self.min_con[i] = max(0.0, self.min_con[i])
-            self.max_con[i] = max(self.min_con[i] + configs['low_val'], self.max_con[i])
+        i = self.focal_coeff_idx - 1
+        while i:
+            self.min_con[i] = max(0,
+                                  self.min_con_orig[i + 1] / (1 + self.min_gap_pct[i]) - self.max_con_orig[i])
+            self.max_con[i] = max(self.min_con[i] + configs['low_val'],
+                                  self.max_con_orig[i + 1] / (1 + self.min_gap_pct[i]) - self.min_con_orig[i])
+            i -= 1
 
     def _feat_eng(self, df) -> np.ndarray:
         X = df[self.feats_in_asc_order].copy()
-        tmp = X.copy()
 
         i = self.len_feats_in_asc_order
-        tmp[f'F{i}'] = tmp[self.feats_in_asc_order[i - 1]]
-
-        while (i - 1):
-            tmp[f'F{i-1}'] = (1 + self.min_gap_pct[i - 1]) * tmp[f'F{i}'] + tmp[self.feats_in_asc_order[i - 2]]
+        while i > self.focal_coeff_idx:
+            X[f'F{i}'] = X[self.feats_in_asc_order[i - 1]]
+            if i < self.len_feats_in_asc_order:
+                X[f'F{i}'] += X[f'F{i + 1}'] * (1 + self.min_gap_pct[i])
             i -= 1
 
-        for i in range(self.len_feats_in_asc_order):
-            X[f'F{i+1}'] = tmp[f'F{i+1}']
+        for i in range(1, self.focal_coeff_idx):
+            X[f'F{i}'] = -X[self.feats_in_asc_order[i - 1]]
+            if i > 1:
+                X[f'F{i}'] += X[f'F{i - 1}'] / (1 + self.min_gap_pct[i - 1])
+
+        X[f'F{self.focal_coeff_idx}'] = X[self.feats_in_asc_order[self.focal_coeff_idx - 1]]
+        if self.focal_coeff_idx < self.len_feats_in_asc_order:
+            X[f'F{self.focal_coeff_idx}'] += X[f'F{self.focal_coeff_idx + 1}'] * (1 + self.min_gap_pct[self.focal_coeff_idx])
+        if self.focal_coeff_idx > 1:
+            X[f'F{self.focal_coeff_idx}'] -= X[f'F{self.focal_coeff_idx - 1}'] / (1 + self.min_gap_pct[self.focal_coeff_idx - 1])
 
         X = X.drop(self.feats_in_asc_order, axis=1)
-        del tmp
 
         X = pd.concat([X, df[self.feats_in_no_order].copy()], join='inner', axis=1)
 
@@ -228,10 +235,15 @@ class CROMPTrain():
 
     def _get_coeff(self, results:dict) -> bool:
         self.coeffs[0] = results.x[0]
-        self.coeffs[1] = results.x[1]
+        self.coeffs[self.focal_coeff_idx] = results.x[self.focal_coeff_idx]
 
-        for i in range(self.len_feats_in_asc_order - 1):
-            self.coeffs[i + 2] = (1 + self.min_gap_pct[i + 1]) * self.coeffs[i + 1] + results.x[i + 2]
+        for i in range(self.focal_coeff_idx + 1, self.len_feats_in_asc_order + 1):
+            self.coeffs[i] = self.coeffs[i - 1] * (1 + self.min_gap_pct[i - 1]) + results.x[i]
+
+        i = self.focal_coeff_idx - 1
+        while i:
+            self.coeffs[i] = self.coeffs[i + 1] / (1 + self.min_gap_pct[i]) - results.x[i]
+            i -= 1
 
         for i in range(self.len_feats_in_asc_order + 1, self.len_coeffs):
             self.coeffs[i] = results.x[i]
@@ -239,21 +251,25 @@ class CROMPTrain():
         return self._post_hoc_corrections()
 
     def _post_hoc_corrections(self) -> bool:
-        min_con_orig = self.iter_data[self.iter_count]['min_con_orig']
-        max_con_orig = self.iter_data[self.iter_count]['max_con_orig']
+        for i in range(1, self.len_feats_in_asc_order + 1):
+            if self.coeffs[i] < self.min_con_orig[i]:
+                self.coeffs[i] = self.min_con_orig[i]
+                if i < self.len_feats_in_asc_order and self.coeffs[i + 1] < self.coeffs[i] * (1 + self.min_gap_pct[i]):
+                    self.coeffs[i + 1] = self.coeffs[i] * (1 + self.min_gap_pct[i])
+            elif self.coeffs[i] > self.max_con_orig[i]:
+                self.coeffs[i] = self.max_con_orig[i]
+                if i > 1 and self.coeffs[i - 1] > self.coeffs[i] / (1 + self.min_gap_pct[i - 1]):
+                    self.coeffs[i - 1] = self.coeffs[i] / (1 + self.min_gap_pct[i - 1])
 
-        i = self.len_feats_in_asc_order
-        while i > 1:
-            if self.coeffs[i] > max_con_orig[i]:
-                self.coeffs[i] = max_con_orig[i]
-                self.coeffs[i - 1] = self.coeffs[i] / (1 + self.min_gap_pct[i - 1])
-            elif self.coeffs[i] < self.coeffs[i - 1]:
-                self.coeffs[i - 1] = self.coeffs[i] / (1 + self.min_gap_pct[i - 1])
-
-            if self.coeffs[i - 1] < min_con_orig[i - 1]:
+        # Validate
+        for i in range(1, self.len_feats_in_asc_order + 1):
+            if self.min_con_orig[i] - self.coeffs[i] > configs['tol'] or\
+                    self.coeffs[i] - self.max_con_orig[i] > configs['tol'] or\
+                    (i < self.len_feats_in_asc_order and\
+                        self.coeffs[i] * (1 + self.min_gap_pct[i]) - self.coeffs[i + 1] > configs['tol']) or\
+                    (i > 1 and\
+                        self.coeffs[i - 1] - self.coeffs[i] / (1 + self.min_gap_pct[i - 1]) > configs['tol']):
                 return False
-
-            i -= 1
 
         return True
 
