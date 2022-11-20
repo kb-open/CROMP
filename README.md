@@ -5,7 +5,7 @@
 [![Build](https://img.shields.io/github/workflow/status/kb-open/CROMP/Test%20Build/main)](https://github.com/kb-open/CROMP/actions/)
 
 # ✏️ CROMP (Constrained Regression with Ordered and Margin-sensitive Parameters) 
-This repo provides the official implementation of CROMP (Constrained Regression with Ordered and Margin-sensitive Parameters) along with the test dataset and the experimental test pipeline code to reproduce the benchmarking results as described in the CROMP paper ("**Constrained Regression with Ordered and Margin-sensitive Parameters: Application in improving interpretability for wage models with prior knowledge**").
+This repo provides the official implementation of CROMP (Constrained Regression with Ordered and Margin-sensitive Parameters) along with the test dataset and the test pipeline code to reproduce the benchmarking results as described in the CROMP paper ("**Constrained Regression with Ordered and Margin-sensitive Parameters: Application in improving interpretability for wage models with prior knowledge**").
 
 Author: [Kaushik Bar](kb.opendev@gmail.com)
 
@@ -16,6 +16,7 @@ CROMP allows:
 * User-defined order among the coefficients
 * User-defined minimum margins (i.e., percentage gaps) between the coefficients
 * User-defined lower and upper bounds for each coefficient
+* Coefficients without any order or margin restrictions
 
 This package is both interpretable and accurate.
 There is no other package / library available in the public domain today with these capabilities.
@@ -39,6 +40,7 @@ The tests depend additionally on:
 * scikit-learn
 * [Data scientist salary data](https://www.kaggle.com/datasets/nikhilbhathi/data-scientist-salary-us-glassdoor?select=data_cleaned_2021.csv)
 * [Ames House price data](https://www.kaggle.com/competitions/house-prices-advanced-regression-techniques/data?select=train.csv)
+* [SCB Sweden wage data](https://www.statistikdatabasen.scb.se/pxweb/en/ssd/START__AM__AM0103__AM0103F/SLP1t12/table/tableViewLayout1/)
 
 ---------------------------
 ## 🚀 Usage

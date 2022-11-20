@@ -16,11 +16,13 @@ def _mape(predictions, actuals):
 def _test_1(df_train, df_test, target_col,
             feats_in_asc_order, min_gap_pct,
             feats_in_no_order,
-            lb, ub):
+            lb, ub,
+            no_intercept=True):
     model = CROMPTrain()
     ret_success = model.config_constraints(feats_in_asc_order, min_gap_pct=min_gap_pct,\
                                            feats_in_no_order=feats_in_no_order,\
-                                           lb=lb, ub=ub)
+                                           lb=lb, ub=ub,
+                                           no_intercept=no_intercept)
     if ret_success:
         ret_success, cromp_model = model.train(df_train, target_col)
 
@@ -131,16 +133,16 @@ def _perform_st_scb_swe_male_non_manual_pvt_wages(data_path:str=None):
     if not data_path:
         data_path = "tests/data/scb_swe_male_non_manual_pvt_wages_data.xlsx"
     df = pd.read_excel(data_path, sheet_name="data")
-    df_train = df.iloc[:3, :]
-    df_test = df.iloc[3:, :]
+    df_train = df.iloc[:4, :]
+    df_test = df.iloc[4:, :]
 
     target_col = 'Cost'
-    feats_in_asc_order = ['HC3', 'HC2', 'HC1']
-    feats_in_no_order = []
+    feats_in_asc_order = ['HC1', 'HC2', 'HC3', 'HC4']
+    feats_in_no_order = ['Year']
 
-    min_gap_pct = 0.1
-    lb = 40000
-    ub = 100000
+    min_gap_pct = [0.25, 0.07, 0.07]
+    lb = [40000, 40000, 40000, 40000, 0]
+    ub = [100000, 100000, 100000, 100000, np.Inf]
 
     _test_1(df_train, df_test, target_col, feats_in_asc_order, min_gap_pct, feats_in_no_order, lb, ub)
     _test_2(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order)
@@ -159,7 +161,7 @@ if __name__ == '__main__':
     parser.add_argument("NumTrainSamples", metavar='n', type=int, nargs='?',\
                         help="specify number of training samples for benchmarking test")
     
-    parser.add_argument("-s", "--SystemTest", metavar='mode', type=str, nargs='?', const='trend_data',\
+    parser.add_argument("-s", "--SystemTest", metavar='mode', type=str, nargs='?', const='scb',\
                         help="select system test (default mode: trend_data, modes supported: trend_data)")
     
     parser.add_argument("-u", "--UT", default=False, action="store_true",\
@@ -177,13 +179,13 @@ if __name__ == '__main__':
     elif args.SystemTest:
         print("\nSystem test with {} mode:".format(args.SystemTest))
         print("\n=========================\n")
-        if args.SystemTest == 'scb_swe_male_non_manual_pvt_wages':
+        if args.SystemTest == 'scb':
             _perform_st_scb_swe_male_non_manual_pvt_wages()
         elif args.SystemTest == 'trend':
             _perform_st_trend()
         else:
             print("\nERROR! Unsupported mode specified for system test." +\
-                  "Modes supported are: scb_swe_male_non_manual_pvt_wages, trend.\n")
+                  "Modes supported are: scb, trend.\n")
     elif args.UT:
         print("\nUnit test:")
         print("\n==========\n")
@@ -193,9 +195,9 @@ if __name__ == '__main__':
 
         # For debugging purposes only
         #_perform_ut(data_path="data/ames_house_prices_data.csv")
-        #_perform_benchmarking(num_training_samples=12, data_path="data/benchmark_wage_data.xlsx")
+        #_perform_benchmarking(num_training_samples=3, data_path="data/benchmark_wage_data.xlsx")
         #_perform_st_scb_swe_male_non_manual_pvt_wages(data_path="data/scb_swe_male_non_manual_pvt_wages_data.xlsx")
-        _perform_st_trend(data_path="data/trend_data.csv")
+        #_perform_st_trend(data_path="data/trend_data.csv")
 
     gc.collect()
     

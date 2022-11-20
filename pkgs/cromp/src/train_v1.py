@@ -81,8 +81,8 @@ class CROMPTrain():
 
             if self.iter_data[self.iter_count]['success']:
                 # Save results
-                self.iter_data[self.iter_count]['results'] = results
-                self.iter_data[self.iter_count]['coeffs'] = self.coeffs
+                self.iter_data[self.iter_count]['results'] = results.copy()
+                self.iter_data[self.iter_count]['coeffs'] = self.coeffs.copy()
 
                 # Modify bound constraints for next iteration by fixing a coefficient to solved value
                 self.min_con_orig[self.iter_count + 1] = self.coeffs[self.iter_count + 1]
@@ -95,7 +95,7 @@ class CROMPTrain():
         for iter in range(self.iter_count + 1):
             if self.iter_data[iter]['success']:
                 success = True
-                if self.iter_data[iter]['results'].cost < self.iter_data[self.best_iter]['results'].cost:
+                if self.iter_data[iter]['results']['cost'] < self.iter_data[self.best_iter]['results']['cost']:
                     self.best_iter = iter
 
         if not success:
