@@ -5,7 +5,7 @@
 [![Build](https://img.shields.io/github/workflow/status/kb-open/CROMP/Test%20Build/main)](https://github.com/kb-open/CROMP/actions/)
 
 # ✏️ CROMP (Constrained Regression with Ordered and Margin-sensitive Parameters) 
-This repo provides the official implementation of CROMP (Constrained Regression with Ordered and Margin-sensitive Parameters) along with the test dataset and the test pipeline code to reproduce the benchmarking results as described in the CROMP paper ("**Constrained Regression with Ordered and Margin-sensitive Parameters: Application in improving interpretability for wage models with prior knowledge**").
+This repo provides the official implementation of CROMP (Constrained Regression with Ordered and Margin-sensitive Parameters) along with the test dataset and the test pipeline code to reproduce the benchmarking results as described in the CROMP paper ("**Constrained Regression with Ordered and Margin-sensitive Parameters: Application in improving interpretability for regression models with prior knowledge**") under publication.
 
 Author: [Kaushik Bar](kb.opendev@gmail.com)
 
