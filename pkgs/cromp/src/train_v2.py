@@ -166,7 +166,7 @@ class CROMPTrain():
             min_con_orig[i] = max((1 + self.min_gap_pct[i - 1]) * min_con_orig[i - 1], min_con_orig[i])
 
         i = self.len_feats_in_asc_order - 1
-        while i:
+        while i > 0:
             max_con_orig[i] = min(max_con_orig[i + 1] / (1 + self.min_gap_pct[i]), max_con_orig[i])
             i -= 1
 
