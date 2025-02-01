@@ -61,7 +61,11 @@ Please go through the [tests](https://github.com/kb-open/cromp/blob/main/tests/c
 >>> # Instantiate model
 >>> model = CROMPTrain()
 
->>> # Configure constraints
+>>> # Configure constraints: 
+>>> # (i) Dollar increase for each unit of increase of each of the above factors is bounded between 0 and 100.
+>>> # (ii) Dollar increase for each unit increase in 'TotalBsmtSF' is at least 50% more than that for '1stFlrSF'.
+>>> # (iii) Dollar increase for each unit increase in 'GrLivArea' is at least 50% more than that for 'TotalBsmtSF'.
+>>> # (iv) Zero price for zero area (obviously)!
 >>> ret_success = model.config_constraints(feats_in_asc_order, min_gap_pct=0.5, feats_in_no_order, lb=0.0, ub=100.0, no_intercept=True)
 
 >>> # Train
