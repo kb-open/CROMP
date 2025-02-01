@@ -110,6 +110,14 @@ class CROMPTrain():
         dump(self.cromp_model, path.rstrip('/') + '/cromp_model.joblib')
 
     def _min_gap_pct_constraints(self, min_gap_pct:[float]) -> bool:
+        if isinstance(min_gap_pct, list):
+            if min(min_gap_pct) < 0.0:
+                print("INCORRECT CONFIG: Percentage gaps cannot be negative!")
+                return False
+        elif min_gap_pct < 0.0:
+            print("INCORRECT CONFIG: Percentage gaps cannot be negative!")
+            return False
+            
         self.min_gap_pct = list(np.zeros(self.len_feats_in_asc_order))
 
         if isinstance(min_gap_pct, list):
@@ -121,10 +129,6 @@ class CROMPTrain():
                 return False
         elif min_gap_pct != 0.0:
             self.min_gap_pct[1:] = [min_gap_pct for idx, _ in enumerate(self.min_gap_pct) if idx > 0]
-
-        if min(self.min_gap_pct) < 0.0:
-            print("INCORRECT CONFIG: Percentage gaps cannot be negative!")
-            return False
 
         return True
 
