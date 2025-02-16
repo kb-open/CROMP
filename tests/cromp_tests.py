@@ -75,37 +75,42 @@ def _test_5(df_train, df_test, target_col, feats, lb, ub):
     model = cp.Problem(objective, constraints)
     model.solve()
     if model.status == 'optimal':
-        print("Predicted coefficients from CVXPY:", coef.value)
+        print("\nPredicted coefficients from CVXPY:", coef.value)
         
         result = df_test[feats].values @ coef.value
         print("Predicted result from CVXPY:\n", result)
         print("MAPE from CVXPY:", _mape(result, df_test[target_col]))
 
 def _test_6(df_train, df_test, target_col, feats, lb, ub):
-    with pm.Model() as model:
-        X = pm.MutableData("X", df_train[feats])
+    coords = {'features': feats}
+    coords_mutable = {'obs_id': np.arange(len(df_train)).tolist()}
+    
+    print("\nBayesian")
+    with pm.Model(coords=coords, coords_mutable=coords_mutable) as model:
+        X = pm.MutableData("X", df_train[feats], dims=('obs_id', 'features'))
         std = df_train[target_col].std()
         
-        intercept = pm.Normal("intercept", mu=0, sigma=std)
-        beta = pm.TruncatedNormal("beta", mu=0, sigma=std, lower=lb, upper=ub, shape=len(feats))
+        intercept = 0 #pm.Normal("intercept", mu=0, sigma=std)
+        beta = pm.TruncatedNormal("beta", mu=0, sigma=std, lower=lb, upper=ub, shape=len(feats), dims='features')
         sigma = pm.HalfNormal("sigma", sigma=std)
         
-        mu = intercept + pm.math.dot(df_train[feats], beta)
-        y = pm.Normal("y", mu=mu, sigma=sigma, observed=df_train[target_col])
+        mu = pm.Deterministic("mu", intercept + pm.math.dot(X, beta), dims='obs_id')
+        y = pm.Normal("y", mu=mu, sigma=sigma, observed=df_train[target_col], dims='obs_id')
         
-        trace = pm.sample(2000, tune=1000, return_inferencedata=True)
+        trace = pm.sample(2000, tune=1000, return_inferencedata=True, target_accept=0.85, random_seed=1)
     
     divergences = trace.sample_stats["diverging"].sum().item()
     if not divergences:
         beta_mean = trace.posterior["beta"].mean(dim=("chain", "draw"))
-        print("Predicted coefficients from Bayesian:", beta_mean.values)
+        print("\nPredicted coefficients from Bayesian:", beta_mean.values)
         
         with model:
-            pm.set_data({"X": df_test[feats]})
+            pm.set_data({"X": df_test[feats]},
+                        coords={'obs_id': [i+len(df_train) for i in np.arange(len(df_test)).tolist()]})
             posterior_predictive = pm.sample_posterior_predictive(trace, predictions=True)
             result = posterior_predictive["predictions"]["y"].mean(dim=("chain", "draw")).values.flatten()
             print("Predicted result from Bayesian:\n", result)
-            #print("MAPE from Bayesian:", _mape(result, df_test[target_col]))
+            print("MAPE from Bayesian:", _mape(result, df_test[target_col]))
 
 def _perform_benchmarking(num_training_samples, data_path:str=None):
     if not data_path:
