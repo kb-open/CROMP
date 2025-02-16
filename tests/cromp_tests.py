@@ -90,7 +90,7 @@ def _test_6(df_train, df_test, target_col, feats, lb, ub):
         X = pm.MutableData("X", df_train[feats], dims=('obs_id', 'features'))
         std = df_train[target_col].std()
         
-        intercept = 0 #pm.Normal("intercept", mu=0, sigma=std)
+        intercept = pm.HalfNormal("intercept", sigma=1) #pm.Normal("intercept", mu=0, sigma=std)
         beta = pm.TruncatedNormal("beta", mu=0, sigma=std, lower=lb, upper=ub, shape=len(feats), dims='features')
         sigma = pm.HalfNormal("sigma", sigma=std)
         
@@ -101,8 +101,12 @@ def _test_6(df_train, df_test, target_col, feats, lb, ub):
     
     divergences = trace.sample_stats["diverging"].sum().item()
     if not divergences:
+        if "intercept" in trace.posterior:
+            print("\nPredicted intercept from Bayesian:", trace.posterior["intercept"].mean(dim=("chain", "draw")).values)
+        else:
+            print("\nUsed intercept in Bayesian:", intercept)
         beta_mean = trace.posterior["beta"].mean(dim=("chain", "draw"))
-        print("\nPredicted coefficients from Bayesian:", beta_mean.values)
+        print("Predicted coefficients from Bayesian:", trace.posterior["beta"].mean(dim=("chain", "draw")).values)
         
         with model:
             pm.set_data({"X": df_test[feats]},
