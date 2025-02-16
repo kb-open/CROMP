@@ -1,2 +1,4 @@
 scikit-learn
 pandas
+cvxpy
+openpyxl >= 3.1.0

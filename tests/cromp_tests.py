@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
 from scipy.optimize import lsq_linear
+import cvxpy as cp
+import pymc as pm
 from cromp import CROMPTrain, CROMPPredict
 
 def _mape(predictions, actuals):
@@ -36,33 +38,74 @@ def _test_1(df_train, df_test, target_col,
             print("Predicted result from CROMP:\n", result)
             print("MAPE from CROMP:", _mape(result, df_test[target_col]))
 
-def _test_2(df_train, df_test, target_col, feats_in_asc_order):
+def _test_2(df_train, df_test, target_col, feats):
     model = LinearRegression()
-    model.fit(df_train[feats_in_asc_order], df_train[target_col])
+    model.fit(df_train[feats], df_train[target_col])
     print("\nPredicted intercept from MLR:", model.intercept_)
     print("Predicted coefficients from MLR:", model.coef_)
 
-    result = model.predict(df_test[feats_in_asc_order])
+    result = model.predict(df_test[feats])
     print("Predicted result from MLR:\n", result)
     print("MAPE from MLR:", _mape(result, df_test[target_col]))
 
-def _test_3(df_train, df_test, target_col, feats_in_asc_order):
+def _test_3(df_train, df_test, target_col, feats):
     model = LinearRegression(fit_intercept=False)
-    model.fit(df_train[feats_in_asc_order], df_train[target_col])
+    model.fit(df_train[feats], df_train[target_col])
     print("\nPredicted coefficients from MLR without intercept:", model.coef_)
 
-    result = model.predict(df_test[feats_in_asc_order])
+    result = model.predict(df_test[feats])
     print("Predicted result from MLR without intercept:\n", result)
     print("MAPE from MLR without intercept:", _mape(result, df_test[target_col]))
 
-def _test_4(df_train, df_test, target_col, feats_in_asc_order, lb, ub):
-    model = lsq_linear(df_train[feats_in_asc_order], df_train[target_col], bounds=(lb, ub))
+def _test_4(df_train, df_test, target_col, feats, lb, ub):
+    model = lsq_linear(df_train[feats], df_train[target_col], bounds=(lb, ub))
     print("\nPredicted coefficients from Linear LSQ:", model.x)
 
-    result = df_test.apply(lambda row: sum([x * y for x, y in zip(model.x, row[feats_in_asc_order])]),
+    result = df_test.apply(lambda row: sum([x * y for x, y in zip(model.x, row[feats])]),
                            axis=1)
     print("Predicted result from Linear LSQ:\n", result)
     print("MAPE from Linear LSQ:", _mape(result, df_test[target_col]))
+
+def _test_5(df_train, df_test, target_col, feats, lb, ub):
+    n_coef = len(feats)
+    coef = cp.Variable(n_coef)
+    constraints = ([coef[i] >= lb[i] for i in range(n_coef) if lb[i] is not None] +\
+                               [coef[i] <= ub[i] for i in range(n_coef) if ub[i] is not None])
+    objective = cp.Minimize(cp.sum_squares(df_train[feats].values @ coef - df_train[target_col].values))
+    model = cp.Problem(objective, constraints)
+    model.solve()
+    if model.status == 'optimal':
+        print("Predicted coefficients from CVXPY:", coef.value)
+        
+        result = df_test[feats].values @ coef.value
+        print("Predicted result from CVXPY:\n", result)
+        print("MAPE from CVXPY:", _mape(result, df_test[target_col]))
+
+def _test_6(df_train, df_test, target_col, feats, lb, ub):
+    with pm.Model() as model:
+        X = pm.MutableData("X", df_train[feats])
+        std = df_train[target_col].std()
+        
+        intercept = pm.Normal("intercept", mu=0, sigma=std)
+        beta = pm.TruncatedNormal("beta", mu=0, sigma=std, lower=lb, upper=ub, shape=len(feats))
+        sigma = pm.HalfNormal("sigma", sigma=std)
+        
+        mu = intercept + pm.math.dot(df_train[feats], beta)
+        y = pm.Normal("y", mu=mu, sigma=sigma, observed=df_train[target_col])
+        
+        trace = pm.sample(2000, tune=1000, return_inferencedata=True)
+    
+    divergences = trace.sample_stats["diverging"].sum().item()
+    if not divergences:
+        beta_mean = trace.posterior["beta"].mean(dim=("chain", "draw"))
+        print("Predicted coefficients from Bayesian:", beta_mean.values)
+        
+        with model:
+            pm.set_data({"X": df_test[feats]})
+            posterior_predictive = pm.sample_posterior_predictive(trace, predictions=True)
+            result = posterior_predictive["predictions"]["y"].mean(dim=("chain", "draw")).values.flatten()
+            print("Predicted result from Bayesian:\n", result)
+            #print("MAPE from Bayesian:", _mape(result, df_test[target_col]))
 
 def _perform_benchmarking(num_training_samples, data_path:str=None):
     if not data_path:
@@ -88,6 +131,8 @@ def _perform_benchmarking(num_training_samples, data_path:str=None):
     _test_2(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order)
     _test_3(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order)
     _test_4(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order, lb, ub)
+    _test_5(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order, lb, ub)
+    _test_6(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order, lb, ub)
 
 def _perform_ut(data_path:str=None):
     if not data_path:
@@ -108,6 +153,8 @@ def _perform_ut(data_path:str=None):
     _test_2(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order)
     _test_3(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order)
     _test_4(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order, lb, ub)
+    _test_5(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order, lb, ub)
+    _test_6(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order, lb, ub)
     
 def _perform_st_trend(data_path:str=None):
     if not data_path:
@@ -128,6 +175,8 @@ def _perform_st_trend(data_path:str=None):
     _test_2(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order)
     _test_3(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order)
     _test_4(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order, lb, ub)
+    _test_5(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order, lb, ub)
+    _test_6(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order, lb, ub)
 
 def _perform_st_scb_swe_male_non_manual_pvt_wages(data_path:str=None):
     if not data_path:
@@ -148,6 +197,8 @@ def _perform_st_scb_swe_male_non_manual_pvt_wages(data_path:str=None):
     _test_2(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order)
     _test_3(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order)
     _test_4(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order, lb, ub)
+    _test_5(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order, lb, ub)
+    _test_6(df_train, df_test, target_col, feats_in_asc_order + feats_in_no_order, lb, ub)
 
 if __name__ == '__main__':
     msg = "CROMP testing pipeline." + "\nUse -b option to select benchmarking test with n number of training samples." +\
