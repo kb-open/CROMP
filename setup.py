@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='cromp', 
-      version='0.0.9',
+      version='0.1.0',
       #license='MIT',
       #author='Kaushik Bar', author_email='kb.opendev@gmail.com', 
       #url='https://github.com/kb-open/cromp',

@@ -31,7 +31,7 @@ pip install cromp
 ---------------------------
 ## 💻 Dependencies
 The package depends on:
-* python >= 3.6
+* python >= 3.11
 * scipy
 * numpy
 * pandas
