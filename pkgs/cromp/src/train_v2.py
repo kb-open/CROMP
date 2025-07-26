@@ -230,7 +230,9 @@ class CROMPTrain():
 
             X = X.drop(self.feats_in_asc_order, axis=1)
 
-        X = pd.concat([X, df[self.feats_in_no_order].copy()], join='inner', axis=1)
+        #X = pd.concat([X, df[self.feats_in_no_order].copy()], join='inner', axis=1)
+        incoming = df[self.feats_in_no_order].loc[:, ~df[self.feats_in_no_order].columns.duplicated()]
+        X = pd.concat([X.reset_index(drop=True), incoming.reset_index(drop=True)], axis=1)
 
         # Convert independent variables to a matrix
         X = X.values

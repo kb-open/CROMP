@@ -4,6 +4,7 @@
 # Author: Kaushik Bar (email: kb.opendev@gmail.com)
 
 from joblib import load
+import numpy as np
 import pandas as pd
 
 class CROMPPredict():
@@ -21,8 +22,10 @@ class CROMPPredict():
         coeffs = self.cromp_model['coeffs']
         feats = self.cromp_model['feats']
 
-        result = df.apply(lambda row: coeffs[0] + sum([x * y for x, y in zip(coeffs[1:], row[feats])]),
-                          axis=1)
+        #result = df.apply(lambda row: coeffs[0] + sum([x * y for x, y in zip(coeffs[1:], row[feats])]), axis=1)
+        result = pd.Series(df[feats].to_numpy().dot(np.array(coeffs[1:])) + coeffs[0], 
+                           index=df.index)
+        
         if self.verbose:
             print("\n\nPredicted result:\n", result)
 
