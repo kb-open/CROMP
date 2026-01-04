@@ -1,4 +1,5 @@
 [![Research Paper](https://journals.sagepub.com/pb-assets/cmscontent/Microsites_SAGE/IOSPress/IOS-Press-Microsite-Banner-v2-1737066953060.jpg)](https://doi.org/10.1177/18724981251393590)
+[![Research Paper](https://journals.sagepub.com/pb-assets/UX3/Images/logo-new-1685528515400.svg)](https://doi.org/10.1177/18724981251393590)
 [![DOI](https://zenodo.org/badge/545916375.svg)](https://zenodo.org/badge/latestdoi/545916375)
 [![PyPI - Python](https://img.shields.io/badge/python-3.11|%203.12-blue.svg)](https://pypi.org/project/cromp/)
 [![PyPI - License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/kb-open/CROMP/blob/main/LICENSE.txt)
