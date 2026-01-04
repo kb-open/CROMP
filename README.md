@@ -99,7 +99,10 @@ year = {2022}
 version = {v0.0.3},
 publisher = {Zenodo},
 doi = {10.5281/zenodo.7152807},
-url = {https://doi.org/10.5281/zenodo.7152807}
+url = {https://doi.org/10.5281/zenodo.7152807},
+publisher = {Intelligent Decision Technologies, Volume 19, Issue 6, Pp. 4380-4395, Nov 2025, Sage Journals},
+doi = {10.1177/18724981251393590},
+url = {https://doi.org/10.1177/18724981251393590}
 }
 ```
 
